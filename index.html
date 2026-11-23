@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moodle GIFT 單選題題庫生成器 v1.2</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans TC","Microsoft JhengHei",sans-serif;color:#172238;background:#f3f6fa}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1150px;margin:auto;padding:26px 18px 80px}header{background:#15345b;color:white;padding:27px 30px;border-radius:16px;margin-bottom:20px}header h1{margin:0 0 8px;font-size:1.65rem}header p{margin:0;color:#d9e6f7;line-height:1.6}.step{border:1px solid #dbe4ef;background:white;border-radius:14px;padding:23px;margin:18px 0;box-shadow:0 2px 10px #1d38500a}.step h2{font-size:1.16rem;margin:0 0 16px;color:#18365d}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.field label{display:block;font-weight:650;margin:0 0 7px}.field small,.hint{display:block;color:#5c6c7d;font-size:.89rem;line-height:1.65;margin:5px 0 10px}input,textarea{font:inherit;width:100%;border:1px solid #bac8d8;border-radius:8px;padding:11px 12px;background:#fff;color:#13243b}textarea{min-height:155px;line-height:1.65;resize:vertical}textarea.big{min-height:230px}textarea.prompt{min-height:290px;font-family:ui-monospace,SFMono-Regular,Consolas,"Microsoft JhengHei",monospace;font-size:13px}input:focus,textarea:focus{outline:2px solid #6b9dd6;outline-offset:0}button{border:0;background:#1f5fa3;color:white;font:inherit;font-weight:650;border-radius:9px;padding:11px 16px;cursor:pointer;margin:5px 8px 5px 0}button:hover{filter:brightness(1.08)}button.secondary{background:#e5ecf6;color:#1d4779}button.success{background:#176a55}button:disabled{opacity:.45;cursor:not-allowed}.status{margin-top:13px;padding:12px 15px;border-radius:9px;white-space:pre-wrap;line-height:1.65;border:1px solid #c9d5e5;background:#f0f4fb}.status.ok{background:#e9f7f2;color:#15543f;border-color:#a6d8c4}.status.bad{background:#fff2ef;color:#963f2f;border-color:#f0bdad}.notice{border-left:4px solid #397ab5;padding:12px 15px;background:#ecf4fd;line-height:1.65;margin:14px 0}.muted{color:#5b6d80}.count{font-variant-numeric:tabular-nums}details{margin-top:14px}summary{cursor:pointer;color:#205d99;font-weight:650}code{background:#eef2f7;padding:1px 4px;border-radius:3px}table{border-collapse:collapse;width:100%;font-size:.91rem}th,td{text-align:left;border-bottom:1px solid #e4e9f0;padding:9px;vertical-align:top}th{background:#f4f7fb}td.answer{color:#156a4e}footer{font-size:.84rem;color:#607287;line-height:1.6}a{color:#1f5fa3}@media(max-width:700px){.grid{grid-template-columns:1fr}.wrap{padding:12px}header,.step{padding:17px}}</style></head>
+<body><div class="wrap"><header><h1>Moodle GIFT 單選題題庫生成器 v1.2</h1><p>教材文本 → 生成給 LLM 的提示詞 → 貼回 GIFT → 驗證、整理與下載 UTF-8 題庫檔。所有處理均在本機瀏覽器完成，無須 API。</p></header>
+<section class="step"><h2>① 輸入文本與題庫資訊</h2><div class="grid"><div class="field"><label for="title">Moodle 題庫分類標題（必填）</label><input id="title" placeholder="例如：當代中文第一冊第三課閱讀理解" maxlength="90"></div><div class="field"><label for="date">題庫日期標記（必填）</label><input type="date" id="date"><small>日期寫入分類及每題名稱，不會修改 Moodle 系統建立時間。</small></div><div class="field"><label for="time">題庫時間標記（必填）</label><input type="time" id="time"><small>例如 14:30；日期與時間皆用於分類及題目名稱。</small></div><div class="field"><label for="count">單選題數（1–100）</label><input type="number" id="count" min="1" max="100" value="10"></div><div class="field"><label for="choices">每題選項數（3–6）</label><input type="number" id="choices" min="3" max="6" value="4"></div></div><div class="notice" id="metaPreview" aria-live="polite"><strong>匯入 Moodle 後的名稱預覽</strong><div id="categoryPreview" style="margin-top:7px;overflow-wrap:anywhere"></div><div id="questionNamePreview" style="margin-top:6px;overflow-wrap:anywhere"></div><small>這是 GIFT 分類及題目名稱，不是 Moodle 真正的「建立時間」。</small></div><div class="field" style="margin-top:15px"><label for="source">教材文本（必填）</label><textarea class="big" id="source" placeholder="請貼上課文、閱讀文章或講義。題目必須以這裡的內容為依據。"></textarea><small>請不要貼入學生姓名、成績或其他不必要的個資；若使用外部 LLM，文本會由您自行貼至該服務。</small></div><div class="field"><label for="extra">補充命題條件（選填）</label><textarea id="extra" style="min-height:80px" placeholder="例如：初級華語、重視理解而非背誦、避免超綱詞、選項字數接近。"></textarea></div><button id="makePrompt">產生完整 Prompt</button> <button class="secondary" id="example">載入示例資料</button></section>
+<section class="step"><h2>② 複製提示詞，交給 LLM 命題</h2><div class="notice">提示詞要求 LLM 只輸出 GIFT 單選題，並嚴格處理特殊字元。此步驟不會直接呼叫 ChatGPT 或其他 LLM。</div><textarea id="prompt" class="prompt" readonly placeholder="請先在步驟①填入內容，再點選「產生完整 Prompt」。"></textarea><button id="copyPrompt">複製 Prompt</button><div id="promptStatus" class="status" role="status">尚未產生提示詞。</div></section>
+<section class="step"><h2>③ 貼回 LLM 的 GIFT，進行檢查與匯出</h2><p class="hint">可貼含 <code>::Q01::</code> 名稱的 GIFT，也可只有題目和答案；即使 Copilot 在題目內或選項間加上空白行，亦會按完整題目解析；本工具會重新指定題庫分類與題目名稱。支援每題一個正解、其餘為錯誤選項。為降低匯入風險，暫不支援配分百分比、複選、HTML 或回饋註解。</p><textarea id="raw" class="big" placeholder="例如：&#10;::Q01::小明星期幾去圖書館？ {&#10;=星期一&#10;~星期二&#10;~星期三&#10;~星期四&#10;}"></textarea><button id="validate">驗證並整理 GIFT</button><button class="secondary" id="copyGift" disabled>複製整理後 GIFT</button><button class="success" id="download" disabled>下載 Moodle GIFT（.txt）</button><div id="validateStatus" class="status" role="status">尚未驗證。可接受題目內多餘空白行。</div><details id="previewDetails"><summary>查看題目檢查表</summary><div id="preview" style="overflow:auto;margin-top:12px"></div></details><div class="field" style="margin-top:16px"><label for="finalGift">整理後的 GIFT（唯讀，可複製）</label><textarea id="finalGift" class="prompt" readonly placeholder="驗證通過後顯示完整 GIFT 內容。"></textarea></div></section>
+<section class="step"><h2>④ 匯入 Moodle 的操作提醒</h2><p class="hint">在課程內開啟「題庫 → 匯入」，選擇 <strong>GIFT 格式</strong>、上傳本工具下載的 UTF-8 <code>.txt</code> 檔，並啟用「從檔案取得類別／Get category from file」（不同版本的欄位名稱可能稍有差異），才能使用檔案內的 <code>$CATEGORY:</code> 建立指定分類。請留意：GIFT 沒有設定 Moodle 系統建立日期／時間或真正標籤的標準欄位；這裡是以分類名稱、題目名稱保存時間標記。正式用於學生測驗前，請先確認匯入題數、答案及題目顯示無誤。<br><br>分類名稱格式：<code>YYYYMMDD_HHMM_標題</code>；題目名稱格式：<code>YYYYMMDD_HHMM_標題_Q001</code>。日期是便於搜尋的命名標記，不是 Moodle 的系統時間戳記。</p><details><summary>為何要特別處理符號？</summary><p class="hint">GIFT 語法使用 <code>~</code>、<code>=</code>、<code>#</code>、<code>{</code>、<code>}</code> 與 <code>:</code>。當這些字元是題幹或答案的實際文字時，需加上反斜線跳脫；反斜線本身也需注意。工具會對解析後的題幹與選項重新跳脫，但若 LLM 把未跳脫的 <code>=</code> 或 <code>~</code> 寫在選項文字中，可能被誤判為選項分隔，驗證通常會攔截，仍須教師審視。</p></details></section>
+<footer>本工具限 GIFT 單選題。它可以檢查所支援的語法與答案數量，但無法保證 LLM 命題內容正確，也無法模擬 Moodle 伺服器匯入器。參考：<a href="https://docs.moodle.org/502/en/GIFT_format" target="_blank" rel="noopener">Moodle 官方 GIFT 格式文件</a>。</footer></div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const pad=(n,len=3)=>String(n).padStart(len,'0');
+const formatDate=()=>{let d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1,2)+'-'+pad(d.getDate(),2)};
+$('date').value=formatDate();
+$('time').value=(()=>{let d=new Date();return pad(d.getHours(),2)+':'+pad(d.getMinutes(),2)})();
+const escapeGift=s=>s.replace(/\\/g,'\\\\').replace(/([~=#{}:])/g,'\\$1');
+const decodeGift=s=>s.replace(/\\([~=#{}:\\])/g,'$1');
+const stripCodeFence=s=>s.trim().replace(/^```(?:gift|text|txt)?\s*\r?\n/i,'').replace(/\r?\n```\s*$/,'').trim();
+const safeTitle=s=>s.trim().replace(/[\r\n]+/g,' ').replace(/[\\/:*?"<>|\x00-\x1f]/g,'－').replace(/\s+/g,' ').trim().slice(0,90);
+const safeFile=s=>s.replace(/[\\/:*?"<>|\x00-\x1f]/g,'_').replace(/\s+/g,'_').slice(0,85);
+const meta=()=>{let title=safeTitle($('title').value),date=$('date').value,time=$('time').value,count=Number($('count').value),choices=Number($('choices').value);if(!title)throw Error('請先填寫題庫標題。');if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||Number.isNaN(Date.parse(date+'T00:00:00')))throw Error('請選擇有效日期。');if(!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(time))throw Error('請選擇有效時間。');if(!Number.isInteger(count)||count<1||count>100)throw Error('題數必須為 1–100 的整數。');if(!Number.isInteger(choices)||choices<3||choices>6)throw Error('選項數必須為 3–6 的整數。');return {title,date,time,count,choices}};
+const prefixFrom=m=>`${m.date.replace(/-/g,'')}_${m.time.replace(':','')}_${m.title}`;
+function updateMetaPreview(){const t=safeTitle($('title').value)||'（請填寫題庫標題）';const d=$('date').value.replace(/-/g,'')||'YYYYMMDD';const hm=$('time').value.replace(':','')||'HHMM';const prefix=`${d}_${hm}_${t}`; $('categoryPreview').textContent='Moodle 分類：'+prefix;$('questionNamePreview').textContent='第一題名稱：'+prefix+'_Q001';}
+['title','date','time'].forEach(id=>$(id).addEventListener('input',updateMetaPreview));updateMetaPreview();
+$('makePrompt').onclick=()=>{try{let m=meta(),src=$('source').value.trim();if(!src)throw Error('請輸入教材文本。');let extra=$('extra').value.trim();$('prompt').value=`你是嚴謹的大學課程測驗命題者，並熟悉 Moodle GIFT 匯入格式。請依據下列教材文本產生「${m.count} 題」單選題，每題「${m.choices} 個」互不重複的選項，恰好一個正解，其他都是錯誤選項。\n\n【題庫標題】${m.title}\n【標記日期】${m.date}\n【標記時間】${m.time}\n【命題補充要求】${extra||'無'}\n\n【命題原則】\n1. 所有題幹、正解與干擾選項均以原文可證實內容為依據，不補寫原文沒有的事實。若文本不足以支持足量且不重複的合理題目，請不要虛構；可先簡短說明題數不足，勿編造。\n2. 兼顧記憶、理解與應用，避免僅靠題幹與選項長短或措辭猜出答案；每題只有一個明確正確答案。\n3. 題幹與選項使用繁體中文、臺灣常用語，避免歧義與雙重否定。\n4. 不輸出 Markdown、表格、程式碼圍欄、解析、前言、附註或答案清單；只輸出符合 GIFT 的題目區塊。\n\n【GIFT 語法：務必遵守】\n1. 每題以 ::Q01::、::Q02:: 等編號開始；名稱後緊接題幹。題目之間建議保留至少一個空白行；即使輸出多餘空白行，程式也會依 { } 判斷完整題目，不依賴空白行切題。\n2. 題幹後以一對 { } 包住所有選項。每個選項另起一行。正確選項以 = 開頭，錯誤選項以 ~ 開頭。不得使用 %50% 等部分給分語法。\n3. 文字內容若需要出現 ASCII 特殊符號 ~ = # { } :，必須在其前加上一個反斜線跳脫，例如 \\=、\\~、\\#、\\{、\\}、\\:。一般中文全形標點如：，。！？：「」不需替換。遇到原始反斜線請盡可能避免；必須保留時寫成兩個反斜線。\n4. 特殊符號要當作文字時，絕不可直接寫在答案文字中，否則 Moodle 可能誤判語法。不要輸出任何 # 回饋內容、HTML、LaTeX、巢狀大括號、其他 GIFT 題型或 $CATEGORY 指令。\n5. 每題恰好 ${m.choices} 個選項，恰好一個 =，其餘 ${m.choices-1} 個 ~；選項不需要 A/B/C/D 前綴。\n6. 最後逐題自我檢查：題數、選項數、正解唯一性、選項無重複、所有特殊符號皆正確跳脫、題目中無額外的大括號。檢查完成後再只輸出最終 GIFT。\n\n【GIFT 範例（僅示範語法，請不要複製範例的實際題目）】\n::Q01::小王在星期幾上課？ {\n=星期一\n~星期二\n~星期三\n${m.choices>=4?'~星期四\n':''}${m.choices>=5?'~星期五\n':''}${m.choices>=6?'~星期六\n':''}}\n\n【教材文本開始】\n${src}\n【教材文本結束】`;
+$('promptStatus').className='status ok';$('promptStatus').textContent=`已產生提示詞：要求 ${m.count} 題、每題 ${m.choices} 選項。請複製至 LLM。`;}catch(e){$('promptStatus').className='status bad';$('promptStatus').textContent=e.message}};
+async function copy(text,statusId){if(!text.trim()){if(statusId)$(statusId).textContent='目前沒有可複製的內容。';return;}try{await navigator.clipboard.writeText(text);if(statusId)$(statusId).textContent='已複製到剪貼簿。'}catch(e){let t=document.createElement('textarea');t.value=text;document.body.appendChild(t);t.select();const ok=document.execCommand('copy');t.remove();if(statusId)$(statusId).textContent=ok?'已複製到剪貼簿。':'無法自動複製，請在文字框內按 Ctrl+A、Ctrl+C。'}}
+$('copyPrompt').onclick=()=>copy($('prompt').value,'promptStatus');
+$('example').onclick=()=>{$('title').value='閱讀理解示例';$('count').value='2';$('choices').value='4';$('source').value='小美星期一下午去圖書館借書。她借了兩本中文書。星期二早上，她和同學在學校一起讀書。';$('extra').value='題目需能從文本直接找到答案。';$('makePrompt').click()};
+function findUnescaped(s,ch,start=0){for(let i=start;i<s.length;i++){if(s[i]==='\\'){i++;continue;}if(s[i]===ch)return i;}return -1}
+function ensureNoUnescaped(s, chars,context){for(let i=0;i<s.length;i++){if(s[i]==='\\'){if(i+1>=s.length)throw Error(context+'結尾有孤立的反斜線。');if(!'~=#{}:\\'.includes(s[i+1]))throw Error(context+'有不支援的反斜線跳脫：\\'+s[i+1]);i++;continue;}if(chars.includes(s[i]))throw Error(context+'含未跳脫的特殊字元「'+s[i]+'」。')}}
+function parseQuestion(block,index,expected){let b=block.trim();b=b.replace(/^::([^\r\n]*?)::\s*/,'');let op=findUnescaped(b,'{');if(op<0)throw Error(`第 ${index} 題缺少未跳脫的 { 答案區塊起始符號。`);let cl=findUnescaped(b,'}',op+1);if(cl<0)throw Error(`第 ${index} 題缺少未跳脫的 } 結束符號。`);if(b.slice(cl+1).trim())throw Error(`第 ${index} 題在 } 後有多餘內容。`);let stem=b.slice(0,op).trim();if(!stem)throw Error(`第 ${index} 題沒有題幹。`);ensureNoUnescaped(stem,'{}',`第 ${index} 題題幹`);let body=b.slice(op+1,cl);let entries=[],current=null;
+for(let i=0;i<body.length;i++){let ch=body[i];if(ch==='\\'){if(i+1>=body.length)throw Error(`第 ${index} 題選項末尾有孤立反斜線。`);if(!'~=#{}:\\'.includes(body[i+1]))throw Error(`第 ${index} 題有未知跳脫：\\${body[i+1]}`);if(!current){if(body.slice(0,i).trim())throw Error(`第 ${index} 題選項開始前有不明文字。`);throw Error(`第 ${index} 題選項應以 = 或 ~ 開頭。`)}current.raw+=body.slice(i,i+2);i++;continue}
+if(ch==='='||ch==='~'){if(current)entries.push(current);current={kind:ch,raw:''};continue}
+if(ch==='#'||ch==='{'||ch==='}')throw Error(`第 ${index} 題答案區中出現未跳脫的「${ch}」，可能造成 Moodle 匯入錯誤（不支援回饋 #）。`);
+if(!current){if(!/\s/.test(ch))throw Error(`第 ${index} 題選項前有多餘文字。`);continue}current.raw+=ch;
+}if(current)entries.push(current);
+if(entries.length!==expected)throw Error(`第 ${index} 題有 ${entries.length} 個選項，應有 ${expected} 個；請檢查是否有未跳脫的 = 或 ~。`);
+let answers=entries.map(e=>({kind:e.kind,text:decodeGift(e.raw.trim())}));if(answers.some(a=>!a.text))throw Error(`第 ${index} 題有空白選項。`);if(answers.filter(a=>a.kind==='=').length!==1)throw Error(`第 ${index} 題必須恰好一個正確選項（=）。`);if(new Set(answers.map(a=>a.text.trim().normalize('NFKC'))).size!==answers.length)throw Error(`第 ${index} 題有重複選項。`);if(/^(?:T|F|TRUE|FALSE)$/i.test(body.trim()))throw Error(`第 ${index} 題不是單選題。`);return {stem:decodeGift(stem),answers};}
+// 依 GIFT 未跳脫的 { ... } 範圍決定題目邊界，而不是利用空白行分割。
+// 因而可接受：選項間空白行、題幹中間空白行、題與題完全沒有空白行。
+function splitGiftQuestions(raw){
+  const normalized=raw.replace(/\r\n?/g,'\n');
+  const lines=normalized.split('\n');
+  const filtered=[];
+  for(const line of lines){
+    if(/^\s*\$CATEGORY\s*:/i.test(line)||/^\s*\/\//.test(line))continue;
+    if(/^\s*```/.test(line))throw Error('發現額外 Markdown 程式碼標記，請先刪除。');
+    filtered.push(line);
+  }
+  const src=filtered.join('\n');
+  let chunks=[],start=-1,op=-1,depth=0,escaped=false;
+  for(let i=0;i<src.length;i++){
+    const ch=src[i];
+    if(escaped){escaped=false;continue;}
+    if(ch==='\\'){escaped=true;continue;}
+    if(ch==='{'){
+      if(depth!==0)throw Error(`第 ${chunks.length+1} 題內有額外未跳脫的「{」，請檢查文字是否需要寫成 \\{。`);
+      if(start<0)start=0;
+      op=i; depth=1;
+    }else if(ch==='}'){
+      if(depth===0)throw Error(`在第 ${chunks.length+1} 題前發現多餘的「}」。`);
+      depth=0;
+      let block=src.slice(start,i+1).trim();
+      if(block)chunks.push(block);
+      start=i+1;op=-1;
+      // 不依賴空白行，只要一個題目的答案區塊閉合就形成一題。
+    }
+  }
+  if(depth!==0)throw Error(`第 ${chunks.length+1} 題有尚未關閉的答案區塊「{」。`);
+  const tail=src.slice(start<0?0:start).trim();
+  if(tail)throw Error(`第 ${chunks.length+1} 題剩餘文字沒有完整的 { } 答案區塊：${tail.slice(0,65)}…`);
+  return chunks;
+}
+function build(){
+  let m=meta(),raw=stripCodeFence($('raw').value);
+  if(!raw)throw Error('請先貼入 LLM 產生的 GIFT。');
+  let chunks=splitGiftQuestions(raw);
+  if(chunks.length!==m.count)throw Error(`辨識出 ${chunks.length} 個完整 GIFT 題目（依 { } 配對），但設定為 ${m.count} 題。請檢查是否漏題或多題。`);
+  let questions=chunks.map((x,i)=>parseQuestion(x,i+1,m.choices));
+  let prefix=prefixFrom(m),cat=prefix.replace(/\//g,'－');
+  let output=`// Moodle GIFT — ${m.title}\n// 日期時間標記：${m.date} ${m.time}；共 ${questions.length} 題；每題 ${m.choices} 選項\n// 日期僅為名稱標記，非 Moodle 系統建立時間\n\n$CATEGORY: ${cat}\n\n`+questions.map((q,i)=>`::${escapeGift(prefix+'_Q'+pad(i+1))}::${escapeGift(q.stem)} {\n${q.answers.map(a=>a.kind+escapeGift(a.text)).join('\n')}\n}`).join('\n\n')+'\n';
+  return {m,questions,output};
+}
+let ready=null;
+function invalidate(){ready=null;$('download').disabled=true;$('copyGift').disabled=true;$('finalGift').value='';$('preview').innerHTML='';}
+['raw','title','date','time','count','choices'].forEach(id=>$(id).addEventListener('input',invalidate));
+$('validate').onclick=()=>{invalidate();try{let result=build();ready=result;$('finalGift').value=result.output;$('download').disabled=false;$('copyGift').disabled=false;$('validateStatus').className='status ok';$('validateStatus').textContent=`通過本工具的結構檢查：${result.questions.length} 題，所有題目各 ${result.m.choices} 個選項，且恰好一個正解。已套用分類「${prefixFrom(result.m)}」與題目名稱。\n提醒：教師仍須審核題意、答案，以及在 Moodle 中實際匯入的結果。`;let table=document.createElement('table');let tr=document.createElement('tr');['題號','題幹','正確答案','選項總數'].forEach(t=>{let th=document.createElement('th');th.textContent=t;tr.appendChild(th)});table.appendChild(tr);result.questions.forEach((q,i)=>{let tr=document.createElement('tr');[pad(i+1),q.stem,q.answers.find(a=>a.kind==='=').text,String(q.answers.length)].forEach((v,j)=>{let td=document.createElement('td');td.textContent=v;if(j===2)td.className='answer';tr.appendChild(td)});table.appendChild(tr)});$('preview').appendChild(table);}catch(e){$('validateStatus').className='status bad';$('validateStatus').textContent='無法下載：'+e.message+'\n請修改上方貼回的 GIFT，然後重新驗證。'}};
+$('copyGift').onclick=()=>{if(ready)copy(ready.output,'validateStatus')};
+$('download').onclick=()=>{if(!ready)return;let blob=new Blob([ready.output],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=safeFile('Moodle_GIFT_'+ready.m.date+'_'+ready.m.time.replace(':','')+'_'+ready.m.title)+'.txt';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+</script></body></html>
